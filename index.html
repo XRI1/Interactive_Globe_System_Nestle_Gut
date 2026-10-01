@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interactive Globe</title>
+<style>
+  :root {
+    --glow: #6fe3ff;
+    --glow-strong: #bff4ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #000; color: #fff;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    cursor: none;
+  }
+
+  .layer { position: fixed; inset: 0; width: 100%; height: 100%; }
+  video.main {
+    object-fit: cover; background: #000;
+    opacity: 0; transition: opacity .6s ease;
+  }
+  video.main.show { opacity: 1; }
+  .hidden { opacity: 0 !important; pointer-events: none; }
+
+  /* ---------- prompt panel ---------- */
+  .panel {
+    position: fixed; left: 50%; bottom: 9vh; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 2.2vh;
+    padding: 3.2vh 5vw;
+    text-align: center; z-index: 10;
+    transition: opacity .6s ease, transform .6s ease;
+  }
+  .panel.hidden { transform: translateX(-50%) translateY(20px); }
+  .panel h1 {
+    font-size: clamp(28px, 4.6vw, 84px); font-weight: 600; letter-spacing: .04em;
+    color: var(--glow-strong);
+    text-shadow: 0 0 12px var(--glow), 0 0 36px rgba(60, 190, 255, .8);
+    animation: breathe 2.6s ease-in-out infinite;
+  }
+  .panel p { font-size: clamp(16px, 1.8vw, 34px); color: #d7f6ff; opacity: .9; text-shadow: 0 2px 8px rgba(0, 0, 0, .8); }
+  @keyframes breathe { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+
+  /* "show hand" icon + hold-progress ring */
+  .ring { position: relative; width: clamp(90px, 11vw, 190px); aspect-ratio: 1; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .track { stroke: rgba(111, 227, 255, .2); }
+  .ring .bar {
+    stroke: var(--glow); stroke-linecap: round;
+    filter: drop-shadow(0 0 6px var(--glow));
+    transition: stroke-dashoffset .08s linear;
+  }
+  .ring .hand {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: clamp(44px, 5.5vw, 96px);
+    animation: wave 1.8s ease-in-out infinite;
+  }
+  .ring.active .hand { animation: none; transform: scale(1.1); }
+  @keyframes wave {
+    0%, 100% { transform: rotate(0); } 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); }
+  }
+
+  /* swipe instruction: hand sliding along an arrow track */
+  .swipe { position: relative; width: clamp(240px, 30vw, 560px); height: clamp(80px, 9vw, 160px); display: none; }
+  .panel.mode-swipe .swipe { display: block; }
+  .panel.mode-swipe .ring { display: none; }
+  .swipe .track-line {
+    position: absolute; left: 6%; right: 6%; top: 50%; height: 4px; transform: translateY(-50%);
+    background: linear-gradient(90deg, transparent, var(--glow), transparent);
+    box-shadow: 0 0 12px var(--glow); border-radius: 2px;
+  }
+  .swipe .arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    font-size: clamp(36px, 4vw, 72px); color: var(--glow-strong); text-shadow: 0 0 14px var(--glow);
+  }
+  .swipe .hand {
+    position: absolute; top: 50%; font-size: clamp(44px, 5.5vw, 96px);
+    transform: translate(-50%, -50%);
+  }
+  .swipe.ltr .arrow { right: 0; }
+  .swipe.ltr .arrow::before { content: "➜"; }
+  .swipe.ltr .hand { animation: slide-ltr 1.8s ease-in-out infinite; }
+  .swipe.rtl .arrow { left: 0; }
+  .swipe.rtl .arrow::before { content: "➜"; display: inline-block; transform: scaleX(-1); }
+  .swipe.rtl .hand { animation: slide-rtl 1.8s ease-in-out infinite; }
+  @keyframes slide-ltr { 0% { left: 12%; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: 82%; opacity: 0; } }
+  @keyframes slide-rtl { 0% { left: 88%; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: 18%; opacity: 0; } }
+
+  /* ---------- camera preview (debug, toggle with D) ---------- */
+  #cam-wrap {
+    position: fixed; right: 16px; top: 16px; width: 260px; aspect-ratio: 4 / 3;
+    border-radius: 10px; overflow: hidden; border: 1px solid rgba(111, 227, 255, .5);
+    background: #000; z-index: 50; display: none;
+  }
+  #cam-wrap.on { display: block; }
+  #cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  #overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #status {
+    position: fixed; left: 16px; top: 16px; z-index: 50; display: none;
+    font: 13px/1.5 Consolas, monospace; background: rgba(0,0,0,.6); padding: 8px 10px; border-radius: 6px;
+  }
+  #status.on { display: block; }
+
+  #error {
+    position: fixed; left: 50%; top: 20px; transform: translateX(-50%); z-index: 60;
+    background: rgba(120, 10, 20, .85); padding: 10px 16px; border-radius: 8px; display: none;
+    font-size: 15px;
+  }
+</style>
+</head>
+<body>
+
+<video id="bgVideo"  class="layer main" src="Videos/Background_Video.mp4" poster="BG/bg_image.png" preload="auto" playsinline loop></video>
+<video id="intro1"   class="layer main" src="Videos/Intro_and_Instruction_Video1.mp4" preload="auto" playsinline></video>
+<video id="video1"   class="layer main" src="Videos/Video1.mp4" preload="auto" playsinline></video>
+<video id="intro2"   class="layer main" src="Videos/Intro_and_Instruction_Video2.mp4" preload="auto" playsinline></video>
+<video id="video2"   class="layer main" src="Videos/Video2.mp4" preload="auto" playsinline></video>
+
+<div id="panel" class="panel hidden">
+  <div id="ring" class="ring">
+    <svg viewBox="0 0 100 100">
+      <circle class="track" cx="50" cy="50" r="44" fill="none" stroke-width="5"/>
+      <circle id="bar" class="bar" cx="50" cy="50" r="44" fill="none" stroke-width="5"
+              stroke-dasharray="276.46" stroke-dashoffset="276.46"/>
+    </svg>
+    <div class="hand">✋</div>
+  </div>
+  <div id="swipe" class="swipe ltr">
+    <div class="track-line"></div>
+    <div class="arrow"></div>
+    <div class="hand">✋</div>
+  </div>
+  <h1 id="title"></h1>
+  <p id="subtitle"></p>
+</div>
+
+<div id="cam-wrap"><video id="cam" playsinline muted></video><canvas id="overlay"></canvas></div>
+<div id="status"></div>
+<div id="error"></div>
+
+<script type="module">
+import { HandLandmarker, FilesetResolver } from "./lib/vision_bundle.mjs";
+
+/* ===================== SETTINGS ===================== */
+const CONFIG = {
+  // "Show your hand" step: center area of the camera image (0..1) where the hand must be.
+  zone: { x0: 0.25, x1: 0.75, y0: 0.15, y1: 0.85 },
+  holdMs: 800,              // how long the hand must stay in the zone to trigger
+  requireOpenPalm: true,    // only an open hand starts the show
+  releaseMs: 500,           // hand must be gone this long before it can trigger again
+
+  // Swipe steps
+  swipeDistance: 0.30,      // hand must travel this fraction of the camera width...
+  swipeTimeMs: 900,         // ...within this time
+  mirror: true,             // true = "left/right" is from the visitor's point of view (facing the camera)
+
+  // After Video1 / Video2 ends: press this arrow key, then wait before continuing
+  waitAfterVideoMs: 5000,
+  sendOsKeys: true,         // also press the real Windows key (via server.py), not just inside the page
+
+  promptTimeoutMs: 60000,   // on a swipe prompt, return to the start after this idle time (0 = never)
+
+  texts: {
+    idleTitle: "Show your hand on Globe",
+    idleSub: "Hold your open hand in front of the globe",
+    swipe1Title: "Move your hand left to right",
+    swipe1Sub: "to see Video 1",
+    swipe2Title: "Move your hand right to left",
+    swipe2Sub: "to see Video 2",
+  },
+};
+/* ==================================================== */
+
+const $ = (id) => document.getElementById(id);
+const V = { bg: $("bgVideo"), intro1: $("intro1"), video1: $("video1"), intro2: $("intro2"), video2: $("video2") };
+const panel = $("panel"), ring = $("ring"), bar = $("bar"), swipeEl = $("swipe");
+const title = $("title"), subtitle = $("subtitle");
+const cam = $("cam"), overlay = $("overlay"), octx = overlay.getContext("2d");
+const statusEl = $("status"), errorEl = $("error"), camWrap = $("cam-wrap");
+const RING_LEN = 276.46;
+
+/* Flow:
+   IDLE (background video, "show your hand")
+   -> INTRO1 -> SWIPE1 (left to right) -> VIDEO1 -> [Left arrow] WAIT1 (5 s)
+   -> INTRO2 -> SWIPE2 (right to left) -> VIDEO2 -> [Right arrow] WAIT2 (5 s) -> IDLE */
+let state = "IDLE";
+let holdStart = 0, lastSeen = 0, armed = false, promptSince = 0;
+let waitTimer = null;
+let trail = [];             // recent palm positions for swipe detection: {t, x, y}
+let handInfo = null;
+
+function showError(msg) { errorEl.textContent = msg; errorEl.style.display = "block"; }
+
+function setProgress(p) {
+  bar.style.strokeDashoffset = RING_LEN * (1 - Math.max(0, Math.min(1, p)));
+  ring.classList.toggle("active", p > 0);
+}
+
+/* Show one video full screen; the previous one fades out underneath. */
+async function showVideo(name, { restart = true } = {}) {
+  const v = V[name];
+  if (restart) v.currentTime = 0;
+  v.style.zIndex = 2;
+  v.classList.add("show");
+  try { await v.play(); }
+  catch {                       // autoplay with sound blocked -> play muted
+    v.muted = true;
+    try { await v.play(); } catch (e) { showError("Could not play " + name + ": " + e.message); }
+  }
+  for (const [k, other] of Object.entries(V)) {
+    if (other === v) continue;
+    other.classList.remove("show");
+    other.style.zIndex = 1;
+    if (k !== "bg") other.pause();
+  }
+  if (name !== "bg") V.bg.pause();
+}
+
+function showPanel(mode, t, s, dir) {
+  panel.classList.toggle("mode-swipe", mode === "swipe");
+  if (dir) swipeEl.className = "swipe " + dir;
+  title.textContent = t;
+  subtitle.textContent = s;
+  panel.classList.remove("hidden");
+}
+const hidePanel = () => panel.classList.add("hidden");
+
+function pressKey(key) {   // key: "left" | "right"
+  const code = key === "left" ? "ArrowLeft" : "ArrowRight";
+  const keyCode = key === "left" ? 37 : 39;
+  for (const type of ["keydown", "keyup"])
+    document.dispatchEvent(new KeyboardEvent(type, { key: code, code, keyCode, which: keyCode, bubbles: true }));
+  if (CONFIG.sendOsKeys)
+    fetch("/key?k=" + key, { method: "POST" }).catch(() => showError("Could not send OS key (is server.py running?)"));
+  console.log("pressed", code);
+}
+
+function goto(next) {
+  state = next;
+  holdStart = 0; armed = false; trail = []; setProgress(0);
+  clearTimeout(waitTimer);
+
+  switch (next) {
+    case "IDLE":
+      showVideo("bg", { restart: false });
+      showPanel("hand", CONFIG.texts.idleTitle, CONFIG.texts.idleSub);
+      break;
+    case "INTRO1": hidePanel(); showVideo("intro1"); break;
+    case "SWIPE1":
+      showPanel("swipe", CONFIG.texts.swipe1Title, CONFIG.texts.swipe1Sub, "ltr");
+      promptSince = performance.now();
+      break;
+    case "VIDEO1": hidePanel(); showVideo("video1"); break;
+    case "WAIT1":
+      pressKey("left");
+      waitTimer = setTimeout(() => goto("INTRO2"), CONFIG.waitAfterVideoMs);
+      break;
+    case "INTRO2": hidePanel(); showVideo("intro2"); break;
+    case "SWIPE2":
+      showPanel("swipe", CONFIG.texts.swipe2Title, CONFIG.texts.swipe2Sub, "rtl");
+      promptSince = performance.now();
+      break;
+    case "VIDEO2": hidePanel(); showVideo("video2"); break;
+    case "WAIT2":
+      pressKey("right");
+      waitTimer = setTimeout(() => goto("IDLE"), CONFIG.waitAfterVideoMs);
+      break;
+  }
+}
+
+const AFTER = { intro1: "SWIPE1", video1: "WAIT1", intro2: "SWIPE2", video2: "WAIT2" };
+const DURING = { intro1: "INTRO1", video1: "VIDEO1", intro2: "INTRO2", video2: "VIDEO2" };
+for (const name of Object.keys(AFTER))
+  V[name].addEventListener("ended", () => { if (state === DURING[name]) goto(AFTER[name]); });
+
+/* Space / test key: simulate whatever the current step is waiting for */
+const ON_GESTURE = { IDLE: "INTRO1", SWIPE1: "VIDEO1", SWIPE2: "VIDEO2" };
+function simulate() {
+  if (ON_GESTURE[state]) goto(ON_GESTURE[state]);
+}
+
+/* ---------- hand logic ---------- */
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+function isOpenPalm(lm) {
+  // finger extended when its tip is farther from the wrist than its PIP joint
+  const fingers = [[8, 6], [12, 10], [16, 14], [20, 18]];
+  return fingers.filter(([tip, pip]) => dist(lm[tip], lm[0]) > dist(lm[pip], lm[0]) * 1.1).length >= 3;
+}
+
+function palmCenter(lm) {
+  const pts = [0, 5, 9, 13, 17].map((i) => lm[i]);
+  const x = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+  const y = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+  // screen-space x as the visitor sees it (mirror)
+  return { x: CONFIG.mirror ? 1 - x : x, y };
+}
+
+function checkShowHand(hands) {
+  const z = CONFIG.zone;
+  let best = null;
+  for (const lm of hands) {
+    const c = palmCenter(lm);
+    const inZone = c.x >= z.x0 && c.x <= z.x1 && c.y >= z.y0 && c.y <= z.y1;
+    const open = isOpenPalm(lm);
+    const info = { ok: inZone && (open || !CONFIG.requireOpenPalm), open, inZone };
+    if (info.ok) return info;
+    best = info;
+  }
+  return best;
+}
+
+/* Returns "ltr", "rtl" or null based on the recent palm trail */
+function checkSwipe(now, hands) {
+  if (hands.length) {
+    const c = palmCenter(hands[0]);
+    trail.push({ t: now, x: c.x, y: c.y });
+  }
+  trail = trail.filter((p) => now - p.t <= CONFIG.swipeTimeMs);
+  if (trail.length < 4) return null;
+  const last = trail[trail.length - 1];
+  for (const p of trail) {
+    const dx = last.x - p.x, dy = Math.abs(last.y - p.y);
+    if (Math.abs(dx) >= CONFIG.swipeDistance && dy < Math.abs(dx)) return dx > 0 ? "ltr" : "rtl";
+  }
+  return null;
+}
+
+function update(now, result) {
+  const hands = result?.landmarks ?? [];
+  handInfo = null;
+
+  if (state === "IDLE") {
+    handInfo = checkShowHand(hands);
+    const hit = handInfo?.ok;
+    if (hit) lastSeen = now;
+    if (!hit && now - lastSeen > CONFIG.releaseMs) armed = true;   // re-arm only after the hand went away
+    if (armed && hit) {
+      if (!holdStart) holdStart = now;
+      const p = (now - holdStart) / CONFIG.holdMs;
+      setProgress(p);
+      if (p >= 1) goto("INTRO1");
+    } else if (!hit && holdStart && now - lastSeen > 250) {
+      holdStart = 0; setProgress(0);                                 // grace period for flickery frames
+    }
+  } else if (state === "SWIPE1" || state === "SWIPE2") {
+    const dir = checkSwipe(now, hands);
+    if (state === "SWIPE1" && dir === "ltr") goto("VIDEO1");
+    else if (state === "SWIPE2" && dir === "rtl") goto("VIDEO2");
+    else if (hands.length) promptSince = now;
+    else if (CONFIG.promptTimeoutMs && now - promptSince > CONFIG.promptTimeoutMs) goto("IDLE");
+  }
+
+  drawDebug(hands);
+}
+
+function drawDebug(hands) {
+  if (!camWrap.classList.contains("on")) return;
+  const w = overlay.width = overlay.clientWidth, h = overlay.height = overlay.clientHeight;
+  const z = CONFIG.zone;
+  if (state === "IDLE") {
+    octx.strokeStyle = handInfo?.ok ? "#3dff8a" : "#6fe3ff";
+    octx.lineWidth = 2; octx.setLineDash([6, 4]);
+    octx.strokeRect(z.x0 * w, z.y0 * h, (z.x1 - z.x0) * w, (z.y1 - z.y0) * h);
+    octx.setLineDash([]);
+  }
+  // overlay is drawn in mirrored (visitor) space to match the mirrored preview
+  const mx = (x) => (CONFIG.mirror ? 1 - x : x) * w;
+  octx.fillStyle = "#ffd84d";
+  for (const lm of hands) for (const p of lm) octx.fillRect(mx(p.x) - 2, p.y * h - 2, 4, 4);
+  if (trail.length > 1) {
+    octx.strokeStyle = "#ff5ad1"; octx.lineWidth = 3; octx.beginPath();
+    trail.forEach((p, i) => (i ? octx.lineTo : octx.moveTo).call(octx, p.x * w, p.y * h));
+    octx.stroke();
+  }
+  statusEl.innerHTML =
+    `state: ${state}<br>hands: ${hands.length}<br>` +
+    (state === "IDLE"
+      ? `in zone: ${handInfo?.inZone ? "yes" : "no"}  open palm: ${handInfo ? (handInfo.open ? "yes" : "no") : "-"}<br>armed: ${armed}`
+      : `trail points: ${trail.length}`);
+}
+
+/* ---------- startup ---------- */
+async function start() {
+  goto("IDLE");
+  armed = true;
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: "user" }, audio: false,
+    });
+  } catch (e) {
+    showError("Camera not available: " + e.message + " (press SPACE to simulate)");
+    return;
+  }
+  cam.srcObject = stream;
+  await cam.play();
+
+  const fileset = await FilesetResolver.forVisionTasks("./lib/wasm");
+  const makeLandmarker = (delegate) => HandLandmarker.createFromOptions(fileset, {
+    baseOptions: { modelAssetPath: "./models/hand_landmarker.task", delegate },
+    runningMode: "VIDEO", numHands: 1,
+    minHandDetectionConfidence: 0.6, minHandPresenceConfidence: 0.6, minTrackingConfidence: 0.5,
+  });
+  let landmarker;
+  try { landmarker = await makeLandmarker("GPU"); }
+  catch { landmarker = await makeLandmarker("CPU"); }
+
+  let lastVideoTime = -1;
+  const loop = () => {
+    const now = performance.now();
+    if (cam.readyState >= 2 && cam.currentTime !== lastVideoTime) {
+      lastVideoTime = cam.currentTime;
+      update(now, landmarker.detectForVideo(cam, now));
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+
+/* ---------- keyboard ----------
+   F = fullscreen, D = debug camera view, SPACE = simulate hand/swipe, H = back to start */
+document.addEventListener("keydown", (e) => {
+  if (!e.isTrusted) return;            // ignore the arrow keys this page sends itself
+  const k = e.key.toLowerCase();
+  if (k === "f") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  else if (k === "d") { camWrap.classList.toggle("on"); statusEl.classList.toggle("on"); }
+  else if (k === " ") { e.preventDefault(); simulate(); }
+  else if (k === "h") goto("IDLE");
+});
+// a click also unlocks audio in browsers that block autoplay with sound
+document.addEventListener("click", () => { for (const v of Object.values(V)) v.muted = false; }, { once: true });
+
+start().catch((e) => showError("Startup error: " + e.message));
+</script>
+</body>
+</html>
