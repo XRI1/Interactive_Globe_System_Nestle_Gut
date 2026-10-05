@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zone Setup</title>
+<style>
+  :root {
+    --glow: #6fe3ff;
+    --ok: #3dff8a;
+    --bg: #050b16;
+    --bar: rgba(10, 24, 44, .92);
+    --text: #dff6ff;
+    --muted: #8fb3c4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    user-select: none;
+  }
+
+  /* ---------- top bar ---------- */
+  header {
+    position: fixed; left: 0; right: 0; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 20px; background: var(--bar);
+    border-bottom: 1px solid rgba(111, 227, 255, .25);
+  }
+  header h1 { font-size: 20px; font-weight: 600; color: var(--glow); margin-right: auto; }
+  #readout { font: 14px Consolas, monospace; color: var(--muted); }
+  #handState { font-size: 14px; padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.08); }
+  #handState.in { background: rgba(61, 255, 138, .2); color: var(--ok); }
+  button {
+    font: inherit; font-size: 15px; padding: 8px 18px; border-radius: 8px; cursor: pointer;
+    border: 1px solid rgba(111, 227, 255, .45); background: transparent; color: var(--text);
+  }
+  button:hover { background: rgba(111, 227, 255, .12); }
+  button.primary { background: var(--glow); color: #04121f; border-color: var(--glow); font-weight: 600; }
+  button.primary:hover { filter: brightness(1.1); }
+
+  .help {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    padding: 8px 20px; background: var(--bar); color: var(--muted); font-size: 13px; text-align: center;
+  }
+
+  /* ---------- camera + zone box ---------- */
+  #stage {
+    position: fixed; left: 50%; top: calc(50% + 10px); transform: translate(-50%, -50%);
+    background: #000; border-radius: 6px; overflow: hidden;
+  }
+  #cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; transform: scaleX(-1); }
+  #dots { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  /* everything outside the zone is darkened */
+  #zone {
+    position: absolute; cursor: move;
+    border: 3px dashed var(--glow);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, .55), 0 0 18px rgba(111, 227, 255, .6);
+  }
+  #zone.in { border-color: var(--ok); box-shadow: 0 0 0 9999px rgba(0, 0, 0, .55), 0 0 22px rgba(61, 255, 138, .8); }
+  #zone .label {
+    position: absolute; left: 8px; top: 6px; font-size: 14px; font-weight: 600;
+    color: var(--glow); text-shadow: 0 1px 4px #000; pointer-events: none;
+  }
+  #zone.in .label { color: var(--ok); }
+  .handle {
+    position: absolute; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--glow); border: 3px solid #04121f; transform: translate(-50%, -50%);
+    box-shadow: 0 0 8px var(--glow);
+  }
+  .handle[data-h="nw"] { left: 0;   top: 0;   cursor: nwse-resize; }
+  .handle[data-h="n"]  { left: 50%; top: 0;   cursor: ns-resize; }
+  .handle[data-h="ne"] { left: 100%; top: 0;  cursor: nesw-resize; }
+  .handle[data-h="e"]  { left: 100%; top: 50%; cursor: ew-resize; }
+  .handle[data-h="se"] { left: 100%; top: 100%; cursor: nwse-resize; }
+  .handle[data-h="s"]  { left: 50%; top: 100%; cursor: ns-resize; }
+  .handle[data-h="sw"] { left: 0;   top: 100%; cursor: nesw-resize; }
+  .handle[data-h="w"]  { left: 0;   top: 50%; cursor: ew-resize; }
+
+  #toast {
+    position: fixed; left: 50%; top: 80px; transform: translateX(-50%); z-index: 30;
+    padding: 10px 20px; border-radius: 8px; font-size: 16px;
+    background: rgba(61, 255, 138, .95); color: #04121f; font-weight: 600;
+    opacity: 0; transition: opacity .3s;
+  }
+  #toast.show { opacity: 1; }
+  #toast.err { background: rgba(255, 80, 90, .95); color: #fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Detection Zone Setup</h1>
+  <span id="handState">Starting camera…</span>
+  <span id="readout"></span>
+  <button id="reset">Reset</button>
+  <button id="save" class="primary">Save Zone</button>
+  <button id="run">Save &amp; Run System ▶</button>
+</header>
+
+<div id="stage">
+  <video id="cam" playsinline muted></video>
+  <canvas id="dots"></canvas>
+  <div id="zone">
+    <span class="label">DETECTION ZONE</span>
+    <div class="handle" data-h="nw"></div><div class="handle" data-h="n"></div>
+    <div class="handle" data-h="ne"></div><div class="handle" data-h="e"></div>
+    <div class="handle" data-h="se"></div><div class="handle" data-h="s"></div>
+    <div class="handle" data-h="sw"></div><div class="handle" data-h="w"></div>
+  </div>
+</div>
+
+<div class="help">
+  Drag the box to <b>move</b> it · drag the round handles to <b>resize</b> ·
+  keyboard: <b>Arrows</b> move, <b>Shift + Arrows</b> resize ·
+  show your hand to test: only hands inside the box are detected, and it turns <b style="color:var(--ok)">green</b>
+</div>
+<div id="toast"></div>
+
+<script type="module">
+import { HandLandmarker, FilesetResolver } from "./lib/vision_bundle.mjs";
+
+// Zone is stored as fractions (0..1) of the camera image, as seen in this mirrored preview.
+const DEFAULT_ZONE = { x0: 0.25, x1: 0.75, y0: 0.15, y1: 0.85 };
+const MIN_SIZE = 0.08;
+const EDGE_MARGIN = 0.08;   // same as edgeMargin in index.html: tracking looks slightly past the zone edge
+
+const $ = (id) => document.getElementById(id);
+const stage = $("stage"), cam = $("cam"), zoneEl = $("zone"), dots = $("dots"), dctx = dots.getContext("2d");
+const readout = $("readout"), handState = $("handState"), toast = $("toast");
+
+let zone = { ...DEFAULT_ZONE };
+let camAspect = 4 / 3;
+
+/* ---------- layout ---------- */
+function layout() {
+  const maxW = window.innerWidth - 40, maxH = window.innerHeight - 140;
+  let w = maxW, h = w / camAspect;
+  if (h > maxH) { h = maxH; w = h * camAspect; }
+  stage.style.width = w + "px";
+  stage.style.height = h + "px";
+  render();
+}
+
+function render() {
+  zoneEl.style.left = zone.x0 * 100 + "%";
+  zoneEl.style.top = zone.y0 * 100 + "%";
+  zoneEl.style.width = (zone.x1 - zone.x0) * 100 + "%";
+  zoneEl.style.height = (zone.y1 - zone.y0) * 100 + "%";
+  const pct = (v) => Math.round(v * 100);
+  readout.textContent =
+    `x ${pct(zone.x0)}–${pct(zone.x1)}%  y ${pct(zone.y0)}–${pct(zone.y1)}%  ` +
+    `(size ${pct(zone.x1 - zone.x0)} × ${pct(zone.y1 - zone.y0)}%)`;
+}
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/* ---------- drag to move / resize ---------- */
+let drag = null;   // { mode, startX, startY, start: {...zone} }
+
+zoneEl.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  zoneEl.setPointerCapture(e.pointerId);
+  drag = { mode: e.target.dataset.h || "move", startX: e.clientX, startY: e.clientY, start: { ...zone } };
+});
+
+zoneEl.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  const r = stage.getBoundingClientRect();
+  const dx = (e.clientX - drag.startX) / r.width;
+  const dy = (e.clientY - drag.startY) / r.height;
+  const s = drag.start, z = { ...s };
+
+  if (drag.mode === "move") {
+    const w = s.x1 - s.x0, h = s.y1 - s.y0;
+    z.x0 = clamp(s.x0 + dx, 0, 1 - w); z.x1 = z.x0 + w;
+    z.y0 = clamp(s.y0 + dy, 0, 1 - h); z.y1 = z.y0 + h;
+  } else {
+    if (drag.mode.includes("w")) z.x0 = clamp(s.x0 + dx, 0, s.x1 - MIN_SIZE);
+    if (drag.mode.includes("e")) z.x1 = clamp(s.x1 + dx, s.x0 + MIN_SIZE, 1);
+    if (drag.mode.includes("n")) z.y0 = clamp(s.y0 + dy, 0, s.y1 - MIN_SIZE);
+    if (drag.mode.includes("s")) z.y1 = clamp(s.y1 + dy, s.y0 + MIN_SIZE, 1);
+  }
+  zone = z;
+  render();
+});
+
+const endDrag = () => { drag = null; };
+zoneEl.addEventListener("pointerup", endDrag);
+zoneEl.addEventListener("pointercancel", endDrag);
+
+/* ---------- keyboard: arrows move, shift+arrows resize ---------- */
+document.addEventListener("keydown", (e) => {
+  const step = 0.01;
+  const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+  if (!d) return;
+  e.preventDefault();
+  const [dx, dy] = d, z = { ...zone };
+  if (e.shiftKey) {            // resize from the bottom-right corner
+    z.x1 = clamp(z.x1 + dx, z.x0 + MIN_SIZE, 1);
+    z.y1 = clamp(z.y1 + dy, z.y0 + MIN_SIZE, 1);
+  } else {
+    const w = z.x1 - z.x0, h = z.y1 - z.y0;
+    z.x0 = clamp(z.x0 + dx, 0, 1 - w); z.x1 = z.x0 + w;
+    z.y0 = clamp(z.y0 + dy, 0, 1 - h); z.y1 = z.y0 + h;
+  }
+  zone = z;
+  render();
+});
+
+/* ---------- save / load ---------- */
+function showToast(msg, isErr = false) {
+  toast.textContent = msg;
+  toast.className = "show" + (isErr ? " err" : "");
+  clearTimeout(showToast.t);
+  showToast.t = setTimeout(() => (toast.className = ""), 2200);
+}
+
+async function save() {
+  try {
+    const res = await fetch("/zone", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(zone),
+    });
+    if (!res.ok) throw new Error(res.status + " " + res.statusText);
+    showToast("✓ Zone saved");
+    return true;
+  } catch (e) {
+    showToast("Could not save zone: " + e.message + " (is server.py running?)", true);
+    return false;
+  }
+}
+
+async function load() {
+  try {
+    const res = await fetch("zone.json", { cache: "no-store" });
+    if (res.ok) zone = { ...DEFAULT_ZONE, ...(await res.json()) };
+  } catch { /* no saved zone yet */ }
+  render();
+}
+
+$("save").onclick = save;
+$("run").onclick = async () => { if (await save()) location.href = "index.html"; };
+$("reset").onclick = () => { zone = { ...DEFAULT_ZONE }; render(); showToast("Zone reset (not saved yet)"); };
+
+/* ---------- live hand test ---------- */
+function palmCenter(lm) {
+  const pts = [0, 5, 9, 13, 17].map((i) => lm[i]);
+  return {
+    x: 1 - pts.reduce((s, p) => s + p.x, 0) / pts.length,   // mirrored, like the preview
+    y: pts.reduce((s, p) => s + p.y, 0) / pts.length,
+  };
+}
+
+function drawHands(hands) {
+  const w = dots.width = dots.clientWidth, h = dots.height = dots.clientHeight;
+  let inside = false;
+  dctx.fillStyle = "#ffd84d";
+  for (const lm of hands) {
+    const c = palmCenter(lm);
+    // only a hand whose palm center is inside the zone counts (and is drawn)
+    if (!(c.x >= zone.x0 && c.x <= zone.x1 && c.y >= zone.y0 && c.y <= zone.y1)) continue;
+    inside = true;
+    for (const p of lm) dctx.fillRect((1 - p.x) * w - 3, p.y * h - 3, 6, 6);
+    dctx.beginPath();
+    dctx.arc(c.x * w, c.y * h, 10, 0, Math.PI * 2);
+    dctx.fillStyle = "#ff5ad1"; dctx.fill(); dctx.fillStyle = "#ffd84d";
+  }
+  zoneEl.classList.toggle("in", inside);
+  handState.classList.toggle("in", inside);
+  handState.textContent = inside ? "✓ Hand detected in zone" : "No hand in zone";
+}
+
+/* Run hand detection on the zone area ONLY: the camera image is cropped to the zone
+   first, so hands outside it are never seen. Landmarks are mapped back to full-frame
+   (unmirrored) coordinates. The zone is in mirrored space, hence 1 - x1. */
+const crop = document.createElement("canvas");
+const cctx = crop.getContext("2d");
+function detectInZone(landmarker, video, zone, now, margin = 0) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const mx0 = Math.max(0, 1 - zone.x1 - margin), mx1 = Math.min(1, 1 - zone.x0 + margin);
+  const my0 = Math.max(0, zone.y0 - margin), my1 = Math.min(1, zone.y1 + margin);
+  const sx = mx0 * vw, sy = my0 * vh;
+  const sw = (mx1 - mx0) * vw, sh = (my1 - my0) * vh;
+  const w = Math.max(1, Math.round(sw)), h = Math.max(1, Math.round(sh));
+  if (crop.width !== w || crop.height !== h) { crop.width = w; crop.height = h; }
+  cctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
+  const res = landmarker.detectForVideo(crop, now);
+  return res.landmarks.map((lm) => lm.map((p) => ({ x: (sx + p.x * sw) / vw, y: (sy + p.y * sh) / vh, z: p.z })));
+}
+
+async function start() {
+  await load();
+  layout();
+  window.addEventListener("resize", layout);
+
+  try {
+    cam.srcObject = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, frameRate: { ideal: 30 }, facingMode: "user" }, audio: false,
+    });
+    await cam.play();
+    camAspect = cam.videoWidth / cam.videoHeight || 4 / 3;
+    layout();
+  } catch (e) {
+    handState.textContent = "Camera not available: " + e.message;
+    return;
+  }
+
+  handState.textContent = "Loading hand tracking…";
+  const fileset = await FilesetResolver.forVisionTasks("./lib/wasm");
+  const make = (delegate) => HandLandmarker.createFromOptions(fileset, {
+    baseOptions: { modelAssetPath: "./models/hand_landmarker.task", delegate },
+    runningMode: "VIDEO", numHands: 1,
+    minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5,
+  });
+  let landmarker;
+  try { landmarker = await make("GPU"); } catch { landmarker = await make("CPU"); }
+
+  let lastTime = -1;
+  const loop = () => {
+    if (cam.readyState >= 2 && cam.currentTime !== lastTime) {
+      lastTime = cam.currentTime;
+      drawHands(detectInZone(landmarker, cam, zone, performance.now(), EDGE_MARGIN));
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+
+start().catch((e) => { handState.textContent = "Error: " + e.message; });
+</script>
+</body>
+</html>

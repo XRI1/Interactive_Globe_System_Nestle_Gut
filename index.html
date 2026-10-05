@@ -85,6 +85,15 @@
   .swipe.rtl .arrow { left: 0; }
   .swipe.rtl .arrow::before { content: "➜"; display: inline-block; transform: scaleX(-1); }
   .swipe.rtl .hand { animation: slide-rtl 1.8s ease-in-out infinite; }
+  /* live dot that follows the visitor's hand while swiping */
+  .swipe .cursor {
+    position: absolute; top: 50%; width: clamp(26px, 2.6vw, 46px); aspect-ratio: 1; border-radius: 50%;
+    transform: translate(-50%, -50%); opacity: 0; transition: opacity .2s;
+    background: radial-gradient(circle, #fff 0%, var(--glow) 45%, transparent 72%);
+    box-shadow: 0 0 24px 8px rgba(111, 227, 255, .7);
+  }
+  .swipe.tracking .cursor { opacity: 1; }
+  .swipe.tracking .hand { opacity: .25 !important; }
   @keyframes slide-ltr { 0% { left: 12%; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: 82%; opacity: 0; } }
   @keyframes slide-rtl { 0% { left: 88%; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: 18%; opacity: 0; } }
 
@@ -114,9 +123,9 @@
 
 <video id="bgVideo"  class="layer main" src="Videos/Background_Video.mp4" poster="BG/bg_image.png" preload="auto" playsinline loop></video>
 <video id="intro1"   class="layer main" src="Videos/Intro_and_Instruction_Video1.mp4" preload="auto" playsinline></video>
-<video id="video1"   class="layer main" src="Videos/Video1.mp4" preload="auto" playsinline></video>
+<video id="video1"   class="layer main" src="Videos/Video11.mp4" preload="auto" playsinline></video>
 <video id="intro2"   class="layer main" src="Videos/Intro_and_Instruction_Video2.mp4" preload="auto" playsinline></video>
-<video id="video2"   class="layer main" src="Videos/Video2.mp4" preload="auto" playsinline></video>
+<video id="video2"   class="layer main" src="Videos/Video22.mp4" preload="auto" playsinline></video>
 
 <div id="panel" class="panel hidden">
   <div id="ring" class="ring">
@@ -131,6 +140,7 @@
     <div class="track-line"></div>
     <div class="arrow"></div>
     <div class="hand">✋</div>
+    <div id="swipeCursor" class="cursor"></div>
   </div>
   <h1 id="title"></h1>
   <p id="subtitle"></p>
@@ -145,15 +155,22 @@ import { HandLandmarker, FilesetResolver } from "./lib/vision_bundle.mjs";
 
 /* ===================== SETTINGS ===================== */
 const CONFIG = {
-  // "Show your hand" step: center area of the camera image (0..1) where the hand must be.
+  // Detection zone (0..1 of the camera image, as seen in the mirrored preview).
+  // Hands outside it are ignored. Set it visually with setup.html (saved to zone.json,
+  // which overrides this default).
   zone: { x0: 0.25, x1: 0.75, y0: 0.15, y1: 0.85 },
   holdMs: 800,              // how long the hand must stay in the zone to trigger
   requireOpenPalm: true,    // only an open hand starts the show
   releaseMs: 500,           // hand must be gone this long before it can trigger again
 
+  // The tracker also looks a little beyond the zone so a hand crossing the zone edge
+  // isn't cut in half and lost. Only a palm whose CENTER is inside the zone counts.
+  edgeMargin: 0.08,         // fraction of the camera image added around the zone for tracking
+
   // Swipe steps
-  swipeDistance: 0.30,      // hand must travel this fraction of the camera width...
-  swipeTimeMs: 900,         // ...within this time
+  swipeDistance: 0.35,      // hand must travel this fraction of the zone's width...
+  swipeTimeMs: 1200,        // ...within this time
+  swipeGapMs: 400,          // a swipe survives the hand being lost for this long (motion blur)
   mirror: true,             // true = "left/right" is from the visitor's point of view (facing the camera)
 
   // After Video1 / Video2 ends: press this arrow key, then wait before continuing
@@ -175,7 +192,7 @@ const CONFIG = {
 
 const $ = (id) => document.getElementById(id);
 const V = { bg: $("bgVideo"), intro1: $("intro1"), video1: $("video1"), intro2: $("intro2"), video2: $("video2") };
-const panel = $("panel"), ring = $("ring"), bar = $("bar"), swipeEl = $("swipe");
+const panel = $("panel"), ring = $("ring"), bar = $("bar"), swipeEl = $("swipe"), swipeCursor = $("swipeCursor");
 const title = $("title"), subtitle = $("subtitle");
 const cam = $("cam"), overlay = $("overlay"), octx = overlay.getContext("2d");
 const statusEl = $("status"), errorEl = $("error"), camWrap = $("cam-wrap");
@@ -240,6 +257,7 @@ function pressKey(key) {   // key: "left" | "right"
 function goto(next) {
   state = next;
   holdStart = 0; armed = false; trail = []; setProgress(0);
+  lastHandPos = null; lastHandAt = 0; setCursor(null);
   clearTimeout(waitTimer);
 
   switch (next) {
@@ -290,46 +308,92 @@ function isOpenPalm(lm) {
   return fingers.filter(([tip, pip]) => dist(lm[tip], lm[0]) > dist(lm[pip], lm[0]) * 1.1).length >= 3;
 }
 
+/* Palm center in mirrored preview space (same space as the zone and setup.html) */
 function palmCenter(lm) {
   const pts = [0, 5, 9, 13, 17].map((i) => lm[i]);
   const x = pts.reduce((s, p) => s + p.x, 0) / pts.length;
   const y = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-  // screen-space x as the visitor sees it (mirror)
-  return { x: CONFIG.mirror ? 1 - x : x, y };
+  return { x: 1 - x, y };
+}
+
+function inZone(c) {
+  const z = CONFIG.zone;
+  return c.x >= z.x0 && c.x <= z.x1 && c.y >= z.y0 && c.y <= z.y1;
 }
 
 function checkShowHand(hands) {
-  const z = CONFIG.zone;
   let best = null;
   for (const lm of hands) {
     const c = palmCenter(lm);
-    const inZone = c.x >= z.x0 && c.x <= z.x1 && c.y >= z.y0 && c.y <= z.y1;
+    const inZ = inZone(c);
     const open = isOpenPalm(lm);
-    const info = { ok: inZone && (open || !CONFIG.requireOpenPalm), open, inZone };
+    const info = { ok: inZ && (open || !CONFIG.requireOpenPalm), open, inZone: inZ };
     if (info.ok) return info;
     best = info;
   }
   return best;
 }
 
+/* The in-zone hand to follow; with two, the one closest to the hand we were following */
+let lastHandPos = null, lastHandAt = 0;
+function pickHand(hands) {
+  const cands = hands.map(palmCenter).filter(inZone);
+  if (cands.length > 1 && lastHandPos) cands.sort((a, b) => dist(a, lastHandPos) - dist(b, lastHandPos));
+  return cands[0] || null;
+}
+
 /* Returns "ltr", "rtl" or null based on the recent palm trail */
-function checkSwipe(now, hands) {
-  if (hands.length) {
-    const c = palmCenter(hands[0]);
+function checkSwipe(now, c) {
+  if (c) {
+    if (now - lastHandAt > CONFIG.swipeGapMs) trail = [];   // hand was gone too long: new gesture
     trail.push({ t: now, x: c.x, y: c.y });
   }
   trail = trail.filter((p) => now - p.t <= CONFIG.swipeTimeMs);
-  if (trail.length < 4) return null;
+  if (trail.length < 3) return null;
+  const need = CONFIG.swipeDistance * (CONFIG.zone.x1 - CONFIG.zone.x0);
   const last = trail[trail.length - 1];
   for (const p of trail) {
     const dx = last.x - p.x, dy = Math.abs(last.y - p.y);
-    if (Math.abs(dx) >= CONFIG.swipeDistance && dy < Math.abs(dx)) return dx > 0 ? "ltr" : "rtl";
+    if (Math.abs(dx) >= need && dy < Math.abs(dx) * 1.2) {
+      const ltr = CONFIG.mirror ? dx > 0 : dx < 0;
+      return ltr ? "ltr" : "rtl";
+    }
   }
   return null;
 }
 
-function update(now, result) {
-  const hands = result?.landmarks ?? [];
+/* Swipe feedback: a glowing dot on the arrow track that follows the visitor's hand */
+let cursorX = null;
+function setCursor(c) {
+  if (!c) { swipeEl.classList.remove("tracking"); cursorX = null; return; }
+  const z = CONFIG.zone;
+  let rel = (c.x - z.x0) / (z.x1 - z.x0);
+  if (!CONFIG.mirror) rel = 1 - rel;
+  rel = Math.max(0, Math.min(1, rel));
+  cursorX = cursorX === null ? rel : cursorX + 0.5 * (rel - cursorX);   // smooth it
+  swipeCursor.style.left = 6 + cursorX * 88 + "%";
+  swipeEl.classList.add("tracking");
+}
+
+/* Run hand detection on the zone area (plus a small margin) ONLY: the camera image is
+   cropped first, so hands away from the zone are never seen. Landmarks are mapped back
+   to full-frame (unmirrored) coordinates. The zone is in mirrored space, hence 1 - x1. */
+const crop = document.createElement("canvas");
+const cctx = crop.getContext("2d");
+function detectInZone(landmarker, video, zone, now, margin = 0) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const mx0 = Math.max(0, 1 - zone.x1 - margin), mx1 = Math.min(1, 1 - zone.x0 + margin);
+  const my0 = Math.max(0, zone.y0 - margin), my1 = Math.min(1, zone.y1 + margin);
+  const sx = mx0 * vw, sy = my0 * vh;
+  const sw = (mx1 - mx0) * vw, sh = (my1 - my0) * vh;
+  const w = Math.max(1, Math.round(sw)), h = Math.max(1, Math.round(sh));
+  if (crop.width !== w || crop.height !== h) { crop.width = w; crop.height = h; }
+  cctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
+  const res = landmarker.detectForVideo(crop, now);
+  return res.landmarks.map((lm) => lm.map((p) => ({ x: (sx + p.x * sw) / vw, y: (sy + p.y * sh) / vh, z: p.z })));
+}
+
+function update(now, hands) {
   handInfo = null;
 
   if (state === "IDLE") {
@@ -346,10 +410,12 @@ function update(now, result) {
       holdStart = 0; setProgress(0);                                 // grace period for flickery frames
     }
   } else if (state === "SWIPE1" || state === "SWIPE2") {
-    const dir = checkSwipe(now, hands);
+    const c = pickHand(hands);
+    const dir = checkSwipe(now, c);
+    if (c) { lastHandPos = c; lastHandAt = now; promptSince = now; }
+    setCursor(c || (now - lastHandAt <= CONFIG.swipeGapMs ? lastHandPos : null));
     if (state === "SWIPE1" && dir === "ltr") goto("VIDEO1");
     else if (state === "SWIPE2" && dir === "rtl") goto("VIDEO2");
-    else if (hands.length) promptSince = now;
     else if (CONFIG.promptTimeoutMs && now - promptSince > CONFIG.promptTimeoutMs) goto("IDLE");
   }
 
@@ -360,14 +426,12 @@ function drawDebug(hands) {
   if (!camWrap.classList.contains("on")) return;
   const w = overlay.width = overlay.clientWidth, h = overlay.height = overlay.clientHeight;
   const z = CONFIG.zone;
-  if (state === "IDLE") {
-    octx.strokeStyle = handInfo?.ok ? "#3dff8a" : "#6fe3ff";
-    octx.lineWidth = 2; octx.setLineDash([6, 4]);
-    octx.strokeRect(z.x0 * w, z.y0 * h, (z.x1 - z.x0) * w, (z.y1 - z.y0) * h);
-    octx.setLineDash([]);
-  }
-  // overlay is drawn in mirrored (visitor) space to match the mirrored preview
-  const mx = (x) => (CONFIG.mirror ? 1 - x : x) * w;
+  octx.strokeStyle = handInfo?.ok ? "#3dff8a" : "#6fe3ff";
+  octx.lineWidth = 2; octx.setLineDash([6, 4]);
+  octx.strokeRect(z.x0 * w, z.y0 * h, (z.x1 - z.x0) * w, (z.y1 - z.y0) * h);
+  octx.setLineDash([]);
+  // overlay is drawn in mirrored space to match the mirrored preview
+  const mx = (x) => (1 - x) * w;
   octx.fillStyle = "#ffd84d";
   for (const lm of hands) for (const p of lm) octx.fillRect(mx(p.x) - 2, p.y * h - 2, 4, 4);
   if (trail.length > 1) {
@@ -383,14 +447,22 @@ function drawDebug(hands) {
 }
 
 /* ---------- startup ---------- */
+async function loadZone() {
+  try {
+    const res = await fetch("zone.json", { cache: "no-store" });
+    if (res.ok) CONFIG.zone = { ...CONFIG.zone, ...(await res.json()) };
+  } catch { /* no saved zone yet: keep the default */ }
+}
+
 async function start() {
+  await loadZone();
   goto("IDLE");
   armed = true;
 
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480, facingMode: "user" }, audio: false,
+      video: { width: 640, height: 480, frameRate: { ideal: 30 }, facingMode: "user" }, audio: false,
     });
   } catch (e) {
     showError("Camera not available: " + e.message + " (press SPACE to simulate)");
@@ -402,8 +474,9 @@ async function start() {
   const fileset = await FilesetResolver.forVisionTasks("./lib/wasm");
   const makeLandmarker = (delegate) => HandLandmarker.createFromOptions(fileset, {
     baseOptions: { modelAssetPath: "./models/hand_landmarker.task", delegate },
-    runningMode: "VIDEO", numHands: 1,
-    minHandDetectionConfidence: 0.6, minHandPresenceConfidence: 0.6, minTrackingConfidence: 0.5,
+    runningMode: "VIDEO", numHands: 2,
+    // a bit lower than default so blurry, fast-moving hands (swipes) are still found
+    minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5,
   });
   let landmarker;
   try { landmarker = await makeLandmarker("GPU"); }
@@ -412,9 +485,12 @@ async function start() {
   let lastVideoTime = -1;
   const loop = () => {
     const now = performance.now();
-    if (cam.readyState >= 2 && cam.currentTime !== lastVideoTime) {
+    const listening = state === "IDLE" || state === "SWIPE1" || state === "SWIPE2";
+    if (listening && cam.readyState >= 2 && cam.currentTime !== lastVideoTime) {
       lastVideoTime = cam.currentTime;
-      update(now, landmarker.detectForVideo(cam, now));
+      update(now, detectInZone(landmarker, cam, CONFIG.zone, now, CONFIG.edgeMargin));
+    } else if (!listening && camWrap.classList.contains("on")) {
+      statusEl.innerHTML = `state: ${state}<br>(tracking paused while video plays)`;
     }
     requestAnimationFrame(loop);
   };

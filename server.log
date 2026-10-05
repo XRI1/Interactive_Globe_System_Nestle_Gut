@@ -1,0 +1,167 @@
+2026-10-03 17:08:09 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 17:08:09 ESP32: connected on COM3
+2026-10-03 17:08:09 ESP32: sent HELLO
+2026-10-03 17:08:12 Port 8000 is already in use ([WinError 10048] Only one usage of each socket address (protocol/network address/port) is normally permitted). Close the other 'Globe Server' window and try again.
+2026-10-03 17:08:23 key press: left -> sent
+2026-10-03 17:08:23 ESP32: sent LEFT
+2026-10-03 17:08:23 ESP32 replied: LEFT ARROW -> LIGHT ON 5 SEC
+2026-10-03 17:08:59 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 17:08:59 ESP32: connected on COM3
+2026-10-03 17:08:59 ESP32: sent HELLO
+2026-10-03 17:09:06 zone saved: {'x0': 0.3729, 'x1': 0.6435, 'y0': 0.5373, 'y1': 0.7535}
+2026-10-03 17:10:15 key press: left -> sent
+2026-10-03 17:10:15 ESP32: sent LEFT
+2026-10-03 17:10:15 ESP32 replied: LEFT ARROW -> LIGHT ON 5 SEC
+2026-10-03 17:11:41 key press: right -> sent
+2026-10-03 17:11:41 ESP32: sent RIGHT
+2026-10-03 17:12:44 key press: left -> sent
+2026-10-03 17:12:44 ESP32: sent LEFT
+2026-10-03 17:12:44 ESP32 replied: LEFT ARROW -> LIGHT ON 5 SEC
+2026-10-03 17:15:52 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 17:15:52 ESP32: no board found
+2026-10-03 17:16:13 zone saved: {'x0': 0.3526, 'x1': 0.6232, 'y0': 0.5287, 'y1': 0.7449}
+2026-10-03 17:16:48 key press: left -> sent
+2026-10-03 17:16:48 ESP32: no board found
+2026-10-03 17:46:24 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 17:46:24 ESP32: connected on COM3
+2026-10-03 17:46:24 ESP32: sent HELLO
+2026-10-03 17:46:37 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 17:46:37 ESP32: connected on COM3
+2026-10-03 17:46:37 ESP32: sent HELLO
+2026-10-03 17:46:43 zone saved: {'x0': 0.3526, 'x1': 0.6232, 'y0': 0.5287, 'y1': 0.7449}
+2026-10-03 17:47:30 key press: left -> sent
+2026-10-03 17:47:30 ESP32: sent LEFT
+2026-10-03 17:47:30 ESP32 replied: LEFT -> RELAY 1 ON FOR 5 SECONDS
+2026-10-03 17:48:29 key press: right -> sent
+2026-10-03 17:48:29 ESP32: sent RIGHT
+2026-10-03 17:48:29 ESP32 replied: RIGHT -> RELAY 2 ON FOR 5 SECONDS
+2026-10-03 18:34:25 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 18:34:26 ESP32: connected on COM3
+2026-10-03 18:34:26 ESP32: sent HELLO
+2026-10-03 18:34:59 zone saved: {'x0': 0.0048, 'x1': 0.9922, 'y0': 0.0564, 'y1': 0.9786}
+2026-10-03 18:36:06 key press: left -> sent
+2026-10-03 18:36:06 ESP32: sent LEFT
+2026-10-03 18:36:06 ESP32 replied: LEFT ON
+2026-10-03 18:37:04 key press: right -> sent
+2026-10-03 18:37:04 ESP32: sent RIGHT
+2026-10-03 18:37:04 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 18:39:54 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 18:39:54 ESP32: connected on COM3
+2026-10-03 18:39:54 ESP32: sent HELLO
+2026-10-03 18:44:19 zone saved: {'x0': 0.2317, 'x1': 0.5125, 'y0': 0.327, 'y1': 0.5075}
+2026-10-03 18:45:27 key press: left -> sent
+2026-10-03 18:45:27 ESP32: sent LEFT
+2026-10-03 18:45:27 ESP32 replied: LEFT ON
+2026-10-03 18:46:31 key press: right -> sent
+2026-10-03 18:46:31 ESP32: sent RIGHT
+2026-10-03 18:46:32 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 18:47:15 key press: left -> sent
+2026-10-03 18:47:15 ESP32: sent LEFT
+2026-10-03 18:47:15 ESP32 replied: 5 SECONDS COMPLETE - BOTH OFF
+LEFT ON
+2026-10-03 18:48:41 key press: right -> sent
+2026-10-03 18:48:41 ESP32: sent RIGHT
+2026-10-03 18:48:41 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 18:48:56 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 18:48:56 ESP32: connected on COM3
+2026-10-03 18:48:56 ESP32: sent HELLO
+2026-10-03 18:49:47 zone saved: {'x0': 0.2262, 'x1': 0.507, 'y0': 0.279, 'y1': 0.505}
+2026-10-03 18:50:26 key press: left -> sent
+2026-10-03 18:50:26 ESP32: sent LEFT
+2026-10-03 18:50:26 ESP32 replied: LEFT ON
+2026-10-03 18:51:45 key press: right -> sent
+2026-10-03 18:51:45 ESP32: sent RIGHT
+2026-10-03 18:51:45 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 18:55:00 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 18:55:00 ESP32: connected on COM3
+2026-10-03 18:55:00 ESP32: sent HELLO
+2026-10-03 18:55:22 zone saved: {'x0': 0.1662, 'x1': 0.447, 'y0': 0.279, 'y1': 0.505}
+2026-10-03 18:56:22 key press: left -> sent
+2026-10-03 18:56:22 ESP32: sent LEFT
+2026-10-03 18:56:22 ESP32 replied: LEFT ON
+2026-10-03 18:58:24 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 18:58:24 ESP32: connected on COM3
+2026-10-03 18:58:24 ESP32: sent HELLO
+2026-10-03 18:58:47 zone saved: {'x0': 0.3922, 'x1': 0.673, 'y0': 0.3134, 'y1': 0.5825}
+2026-10-03 18:59:21 key press: left -> sent
+2026-10-03 18:59:21 ESP32: sent LEFT
+2026-10-03 18:59:21 ESP32 replied: LEFT ON
+2026-10-03 19:00:23 key press: right -> sent
+2026-10-03 19:00:23 ESP32: sent RIGHT
+2026-10-03 19:00:23 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 19:04:12 key press: left -> sent
+2026-10-03 19:04:12 ESP32: sent LEFT
+2026-10-03 19:04:13 ESP32 replied: 5 SECONDS COMPLETE - BOTH OFF
+LEFT ON
+2026-10-03 19:05:20 key press: right -> sent
+2026-10-03 19:05:20 ESP32: sent RIGHT
+2026-10-03 19:05:20 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 19:07:16 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 19:11:07 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 19:11:07 ESP32: connected on COM3
+2026-10-03 19:11:07 ESP32: sent HELLO
+2026-10-03 19:11:17 zone saved: {'x0': 0.4005, 'x1': 0.6813, 'y0': 0.3023, 'y1': 0.5505}
+2026-10-03 19:11:52 key press: left -> sent
+2026-10-03 19:11:52 ESP32: sent LEFT
+2026-10-03 19:11:52 ESP32 replied: LEFT ON
+2026-10-03 19:12:50 key press: right -> sent
+2026-10-03 19:12:50 ESP32: sent RIGHT
+2026-10-03 19:12:51 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 19:15:50 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 19:15:50 ESP32: connected on COM3
+2026-10-03 19:15:50 ESP32: sent HELLO
+2026-10-03 19:15:57 zone saved: {'x0': 0.4005, 'x1': 0.6813, 'y0': 0.3023, 'y1': 0.5505}
+2026-10-03 19:16:17 key press: left -> sent
+2026-10-03 19:16:17 ESP32: sent LEFT
+2026-10-03 19:16:17 ESP32 replied: LEFT ON
+2026-10-03 19:16:37 key press: right -> sent
+2026-10-03 19:16:37 ESP32: sent RIGHT
+2026-10-03 19:16:38 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 19:18:20 key press: left -> sent
+2026-10-03 19:18:20 ESP32: sent LEFT
+2026-10-03 19:18:20 ESP32 replied: 5 SECONDS COMPLETE - BOTH OFF
+LEFT ON
+2026-10-03 19:18:44 key press: right -> sent
+2026-10-03 19:18:44 ESP32: sent RIGHT
+2026-10-03 19:18:44 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 19:19:28 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 19:19:28 ESP32: connected on COM3
+2026-10-03 19:19:28 ESP32: sent HELLO
+2026-10-03 19:21:01 zone saved: {'x0': 0.4291, 'x1': 0.6582, 'y0': 0.3121, 'y1': 0.5505}
+2026-10-03 19:21:32 key press: left -> sent
+2026-10-03 19:21:32 ESP32: sent LEFT
+2026-10-03 19:21:32 ESP32 replied: LEFT ON
+2026-10-03 19:21:53 key press: right -> sent
+2026-10-03 19:21:53 ESP32: sent RIGHT
+2026-10-03 19:21:54 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 19:22:47 key press: left -> sent
+2026-10-03 19:22:47 ESP32: sent LEFT
+2026-10-03 19:22:47 ESP32 replied: 5 SECONDS COMPLETE - BOTH OFF
+LEFT ON
+2026-10-03 19:23:09 key press: right -> sent
+2026-10-03 19:23:09 ESP32: sent RIGHT
+2026-10-03 19:23:09 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 19:23:55 key press: left -> sent
+2026-10-03 19:23:55 ESP32: sent LEFT
+2026-10-03 19:23:55 ESP32 replied: 5 SECONDS COMPLETE - BOTH OFF
+LEFT ON
+2026-10-03 19:24:19 key press: right -> sent
+2026-10-03 19:24:19 ESP32: sent RIGHT
+2026-10-03 19:24:19 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 19:28:45 Interactive Globe running at http://localhost:8000/index.html  (Ctrl+C to stop)
+2026-10-03 19:28:45 ESP32: connected on COM3
+2026-10-03 19:28:45 ESP32: sent HELLO
+2026-10-03 19:28:55 zone saved: {'x0': 0.4291, 'x1': 0.6582, 'y0': 0.3121, 'y1': 0.5505}
+2026-10-03 19:30:45 key press: left -> sent
+2026-10-03 19:30:45 ESP32: sent LEFT
+2026-10-03 19:30:45 ESP32 replied: LEFT ON
+2026-10-03 19:31:06 key press: right -> sent
+2026-10-03 19:31:06 ESP32: sent RIGHT
+2026-10-03 19:31:06 ESP32 replied: RIGHT ON - TIMER STARTED
+2026-10-03 19:33:34 key press: left -> sent
+2026-10-03 19:33:34 ESP32: sent LEFT
+2026-10-03 19:33:34 ESP32 replied: 5 SECONDS COMPLETE - BOTH OFF
+LEFT ON
+2026-10-03 19:33:56 key press: right -> sent
+2026-10-03 19:33:56 ESP32: sent RIGHT
+2026-10-03 19:33:56 ESP32 replied: RIGHT ON - TIMER STARTED
